@@ -24,6 +24,7 @@ from matplotlib import cm
 from tqdm import tqdm
 
 import torch
+import cv2
 
 def normalize(x: np.ndarray) -> np.ndarray:
   """Normalization helper function."""
@@ -279,3 +280,26 @@ def save_img_f32(depthmap, pth):
   """Save an image (probably a depthmap) to disk as a float32 TIFF."""
   with open(pth, 'wb') as f:
     Image.fromarray(np.nan_to_num(depthmap).astype(np.float32)).save(f, 'TIFF')
+
+def visualize_depth_magma(depth, inverse=True):
+  """Visualize the depth map with colormap.
+     Rescales the values so that depth_min and depth_max map to 0 and 1,
+     respectively.
+  """
+  if isinstance(depth, torch.Tensor):
+    depth = depth.detach().cpu().numpy()
+
+  if inverse:
+    depth = 1.0 / (depth + 1e-6)
+
+  depth_min = np.percentile(depth, 5)
+  depth_max = np.percentile(depth, 95)
+
+  depth[depth < depth_min] = depth_min
+  depth[depth > depth_max] = depth_max
+
+  depth_scaled = (depth - depth_min) / ((depth_max - depth_min) + 1e-20)
+  depth_scaled_uint8 = np.uint8(depth_scaled * 255)
+  depth_color = cv2.applyColorMap(depth_scaled_uint8, cv2.COLORMAP_MAGMA)
+
+  return depth_color
