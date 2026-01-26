@@ -7,7 +7,7 @@ parser = ArgumentParser(description="Full evaluation script parameters")
 parser.add_argument("--skip_training", action="store_true")
 parser.add_argument("--skip_rendering", action="store_true")
 parser.add_argument("--skip_metrics", action="store_true")
-parser.add_argument("--output_path", default="/media/data/surrec/outputs/output-gausr/dtu_w-smooth7000_0.1")
+parser.add_argument("--output_path", default="/media/data/surrec/outputs/output-gausr/dtu_w-smooth7000_0.5")
 parser.add_argument('--dtu', "-dtu", required=True, type=str)
 args, _ = parser.parse_known_args()
 
