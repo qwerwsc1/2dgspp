@@ -95,9 +95,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
 
         # gamma correlation from unbiased-gs
-        if dataset.gamma_cor:
-            gt_image = viewpoint_cam.original_image.cuda().pow(dataset.gamma)
-            gt_image.pow(dataset.gamma)
+        if dataset.gamma_cor is not None:
+            gt_image = viewpoint_cam.original_image.cuda().pow(dataset.gamma_cor)
+            gt_image.pow(dataset.gamma_cor)
         else:
             gt_image = viewpoint_cam.original_image.cuda()
         Ll1 = l1_loss(image, gt_image)

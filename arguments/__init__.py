@@ -57,7 +57,7 @@ class ModelParams(ParamGroup):
         self.render_items = ['RGB', 'Alpha', 'Normal', 'Depth', 'Edge', 'Curvature']
 
         # ablation
-        self.gamma_cor = True
+        self.gamma_cor = 0.5
         self.dsmooth = False
         self.mvgeo = True
         self.mvpho = False
