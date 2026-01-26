@@ -1,13 +1,13 @@
 import os
 from argparse import ArgumentParser
 
-dtu_scenes = ['scan24'] #, 'scan37', 'scan40', 'scan55', 'scan63', 'scan65', 'scan69', 'scan83', 'scan97', 'scan105', 'scan106', 'scan110', 'scan114', 'scan118', 'scan122']
+dtu_scenes = ['scan24','scan37', 'scan40', 'scan55', 'scan63', 'scan65', 'scan69', 'scan83', 'scan97', 'scan105', 'scan106', 'scan110', 'scan114', 'scan118', 'scan122']
 
 parser = ArgumentParser(description="Full evaluation script parameters")
 parser.add_argument("--skip_training", action="store_true")
 parser.add_argument("--skip_rendering", action="store_true")
 parser.add_argument("--skip_metrics", action="store_true")
-parser.add_argument("--output_path", default="/media/data/surrec/outputs/output-gausr/dtu_w")
+parser.add_argument("--output_path", default="/media/data/surrec/outputs/output-gausr/dtu_w-smooth7000_0.1")
 parser.add_argument('--dtu', "-dtu", required=True, type=str)
 args, _ = parser.parse_known_args()
 

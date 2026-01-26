@@ -39,6 +39,7 @@ class Camera(nn.Module):
         self.original_image = image.clamp(0.0, 1.0) # move to device at dataloader to reduce VRAM requirement
         self.image_width = self.original_image.shape[2]
         self.image_height = self.original_image.shape[1]
+        self.gray_image = (0.299 * self.original_image[0] + 0.587 * self.original_image[1] + 0.114 * self.original_image[2])[None]
 
         if gt_alpha_mask is not None:
             # self.original_image *= gt_alpha_mask.to(self.data_device)
@@ -58,6 +59,9 @@ class Camera(nn.Module):
         self.full_proj_transform = (self.world_view_transform.unsqueeze(0).bmm(self.projection_matrix.unsqueeze(0))).squeeze(0)
         self.camera_center = self.world_view_transform.inverse()[3, :3]
 
+
+    def gamma_corrected_image(self, gamma=1.0):
+        return torch.pow(self.original_image, gamma)
 class MiniCam:
     def __init__(self, width, height, fovy, fovx, znear, zfar, world_view_transform, full_proj_transform):
         self.image_width = width

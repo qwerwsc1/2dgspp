@@ -32,39 +32,20 @@ import numpy as np
 import cv2
 from utils.render_utils import visualize_depth_magma
 
-def edge_aware_depth_smoothness(
-        depth, image
-):
+def edge_aware_depth_smoothness(depth, image):
     """
     depth: (1,H,W) or (B,1,H,W)
     image: (3,H,W) or (B,3,H,W)
     alpha: (1,H,W) or (B,1,H,W)  optional
     """
-    if depth.dim() == 3: depth = depth.unsqueeze(0)      # (1,1,H,W)?? careful
-    if depth.dim() == 4 and depth.shape[1] != 1:
-        raise ValueError("depth should be (B,1,H,W)")
-
-    if image.dim() == 3: image = image.unsqueeze(0)      # (B,3,H,W)
-
-    # Ensure depth is (B,1,H,W)
-    if depth.dim() == 4 and depth.shape[1] == 1:
-        pass
-    elif depth.dim() == 3:
-        depth = depth.unsqueeze(1)
-    else:
-        # (B,H,W)
-        if depth.dim() == 3: depth = depth.unsqueeze(1)
-
-    B, _, H, W = depth.shape
-
     # image gradients -> edge weights
-    gradient_depth_x = torch.abs(depth[:, :, :, :-1] - depth[:, :, :, 1:])
-    gradient_depth_y = torch.abs(depth[:, :, :-1, :] - depth[:, :, 1:,])
+    gradient_depth_x = torch.abs(depth[:, :, :-1] - depth[:, :, 1:])
+    gradient_depth_y = torch.abs(depth[:, :-1, :] - depth[:, 1:,])
 
     # only compute where both neighbors have confident surface
     # m = (alpha > tau).float()
-    gradient_imag_x = torch.mean(torch.abs(image[:, :, :, :-1] - image[:, :, :, 1:]), 1, keepdim=True)
-    gradient_imag_y = torch.mean(torch.abs(image[:, :, :-1, :] - image[:, :, 1:, :]), 1, keepdim=True)
+    gradient_imag_x = torch.mean(torch.abs(image[:, :, :-1] - image[:, :, 1:]), 0, keepdim=True)
+    gradient_imag_y = torch.mean(torch.abs(image[:, :-1, :] - image[:, 1:, :]), 0, keepdim=True)
 
     gradient_disp_x = gradient_depth_x * torch.exp(-gradient_imag_x)
     gradient_disp_y = gradient_depth_y * torch.exp(-gradient_imag_y)
@@ -129,12 +110,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         dist_loss = lambda_dist * (rend_dist).mean()
 
         lambda_dsmooth = opt.lambda_dsmooth if iteration > 7000 else 0.0
-        depth = render_pkg["surf_depth"]          # (1,H,W)
-        img   = gt_image.detach()     # 用 render 或 gt 都行；通常用 render 更一致
-        alpha = render_pkg["rend_alpha"]
-        # 方案1：alpha gating（最安全，不被洞污染）
+        depth = render_pkg["surf_depth"]
+        img   = gt_image.detach()
         smooth = edge_aware_depth_smoothness(depth=depth, image=img)
-        smooth_loss = opt.lambda_smooth * smooth
+        smooth_loss = lambda_dsmooth * smooth
         loss += smooth_loss
 
         if dataset.rend_show:
