@@ -1,0 +1,7 @@
+# ninja log v5
+0	1245	1769372592959247131	/home/wangsc/Documents/SurR/codes/2dgspp/submodules/diff-surfel-rasterization-MCMC/build/temp.linux-x86_64-3.8/cuda_rasterizer/forward.o	ee3be67751b5ba1c
+0	1312	1769372593027248044	/home/wangsc/Documents/SurR/codes/2dgspp/submodules/diff-surfel-rasterization-MCMC/build/temp.linux-x86_64-3.8/cuda_rasterizer/backward.o	4e582480ef408ce6
+0	3538	1769372595251277919	/home/wangsc/Documents/SurR/codes/2dgspp/submodules/diff-surfel-rasterization-MCMC/build/temp.linux-x86_64-3.8/cuda_rasterizer/rasterizer_impl.o	b79b35f196b931ad
+0	11179	1769372602887380490	/home/wangsc/Documents/SurR/codes/2dgspp/submodules/diff-surfel-rasterization-MCMC/build/temp.linux-x86_64-3.8/ext.o	fae76c28321e09bc
+0	22486	1769372614199527283	/home/wangsc/Documents/SurR/codes/2dgspp/submodules/diff-surfel-rasterization-MCMC/build/temp.linux-x86_64-3.8/rasterize_points.o	c6a03c492ddd804c
+0	22626	1769372614339528949	/home/wangsc/Documents/SurR/codes/2dgspp/submodules/diff-surfel-rasterization-MCMC/build/temp.linux-x86_64-3.8/cuda_rasterizer/utils.o	8dbbaef7b18a66d4
