@@ -60,7 +60,7 @@ class Camera(nn.Module):
         self.camera_center = self.world_view_transform.inverse()[3, :3]
 
 
-    def gamma_corrected_image(self, gamma=1.0):
+    def gamma_corrected_image(self, gamma=0.5):
         return torch.pow(self.original_image, gamma)
 class MiniCam:
     def __init__(self, width, height, fovy, fovx, znear, zfar, world_view_transform, full_proj_transform):

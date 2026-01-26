@@ -55,6 +55,12 @@ class ModelParams(ParamGroup):
         self.data_device = "cuda"
         self.eval = False
         self.render_items = ['RGB', 'Alpha', 'Normal', 'Depth', 'Edge', 'Curvature']
+
+        # ablation
+        self.gamma_cor = True
+        self.dsmooth = False
+        self.mvgeo = True
+        self.mvpho = False
         self.rend_show = True
         super().__init__(parser, "Loading Parameters", sentinel)
 
@@ -86,7 +92,7 @@ class OptimizationParams(ParamGroup):
         self.lambda_dssim = 0.2
         self.lambda_dist = 0.0
         self.lambda_normal = 0.05
-        self.lambda_dsmooth = 0.5
+        self.lambda_dsmooth = 0.1
         self.opacity_cull = 0.05
 
         self.densification_interval = 100
