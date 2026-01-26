@@ -31,6 +31,47 @@ import random
 import numpy as np
 import cv2
 from utils.render_utils import visualize_depth_magma
+
+def edge_aware_depth_smoothness(
+        depth, image
+):
+    """
+    depth: (1,H,W) or (B,1,H,W)
+    image: (3,H,W) or (B,3,H,W)
+    alpha: (1,H,W) or (B,1,H,W)  optional
+    """
+    if depth.dim() == 3: depth = depth.unsqueeze(0)      # (1,1,H,W)?? careful
+    if depth.dim() == 4 and depth.shape[1] != 1:
+        raise ValueError("depth should be (B,1,H,W)")
+
+    if image.dim() == 3: image = image.unsqueeze(0)      # (B,3,H,W)
+
+    # Ensure depth is (B,1,H,W)
+    if depth.dim() == 4 and depth.shape[1] == 1:
+        pass
+    elif depth.dim() == 3:
+        depth = depth.unsqueeze(1)
+    else:
+        # (B,H,W)
+        if depth.dim() == 3: depth = depth.unsqueeze(1)
+
+    B, _, H, W = depth.shape
+
+    # image gradients -> edge weights
+    gradient_depth_x = torch.abs(depth[:, :, :, :-1] - depth[:, :, :, 1:])
+    gradient_depth_y = torch.abs(depth[:, :, :-1, :] - depth[:, :, 1:,])
+
+    # only compute where both neighbors have confident surface
+    # m = (alpha > tau).float()
+    gradient_imag_x = torch.mean(torch.abs(image[:, :, :, :-1] - image[:, :, :, 1:]), 1, keepdim=True)
+    gradient_imag_y = torch.mean(torch.abs(image[:, :, :-1, :] - image[:, :, 1:, :]), 1, keepdim=True)
+
+    gradient_disp_x = gradient_depth_x * torch.exp(-gradient_imag_x)
+    gradient_disp_y = gradient_depth_y * torch.exp(-gradient_imag_y)
+    smooth_loss = gradient_disp_x.mean() + gradient_disp_y.mean()
+
+    return smooth_loss
+
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint):
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
@@ -87,26 +128,35 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         normal_loss = lambda_normal * (normal_error).mean()
         dist_loss = lambda_dist * (rend_dist).mean()
 
-        # if dataset.rend_show:
-        #     if iteration % 200 == 0:
-        #         rend_gt = viewpoint_cam.original_image[0:3, :, :]
-        #         rend_image = render_pkg['render']
-        #         rend_depth = render_pkg['surf_depth']
-        #         rend_depth_normal = render_pkg['surf_normal']
-        #         rend_normal = torch.nn.functional.normalize(render_pkg['rend_normal'], dim=0)
-        #
-        #         gt_show = (rend_gt.permute(1, 2, 0).clamp(0,1)[:,:,[2,1,0]]*255).detach().cpu().numpy().astype(np.uint8)
-        #         rend_img_show = (rend_image.permute(1, 2, 0).clamp(0,1)[:,:,[2,1,0]]*255).detach().cpu().numpy().astype(np.uint8)
-        #         depth_magma_show = visualize_depth_magma(rend_depth.detach().permute(1, 2, 0).squeeze())
-        #         normal_show = ((rend_normal * 0.5 + 0.5).clamp(0,1) * 255).permute(1, 2, 0).detach().cpu().numpy().astype(np.uint8)
-        #         depth_normal_show = ((rend_depth_normal * 0.5 + 0.5).clamp(0, 1) * 255).permute(1, 2, 0).detach().cpu().numpy().astype(np.uint8)
-        #
-        #         row0 = np.concatenate([gt_show, rend_img_show, depth_magma_show, depth_normal_show, normal_show], axis=1)
-        #         image_to_show = np.concatenate([row0], axis=0)
-        #
-        #         debug_path = os.path.join(scene.model_path, "debug")
-        #         os.makedirs(debug_path, exist_ok=True)
-        #         cv2.imwrite(os.path.join(debug_path, "%05d"%iteration + "_" + viewpoint_cam.image_name + ".png"), image_to_show)
+        lambda_dsmooth = opt.lambda_dsmooth if iteration > 7000 else 0.0
+        depth = render_pkg["surf_depth"]          # (1,H,W)
+        img   = gt_image.detach()     # 用 render 或 gt 都行；通常用 render 更一致
+        alpha = render_pkg["rend_alpha"]
+        # 方案1：alpha gating（最安全，不被洞污染）
+        smooth = edge_aware_depth_smoothness(depth=depth, image=img)
+        smooth_loss = opt.lambda_smooth * smooth
+        loss += smooth_loss
+
+        if dataset.rend_show:
+            if iteration % 200 == 0:
+                rend_gt = viewpoint_cam.original_image[0:3, :, :]
+                rend_image = render_pkg['render']
+                rend_depth = render_pkg['surf_depth']
+                rend_depth_normal = render_pkg['surf_normal']
+                rend_normal = torch.nn.functional.normalize(render_pkg['rend_normal'], dim=0)
+
+                gt_show = (rend_gt.permute(1, 2, 0).clamp(0,1)[:,:,[2,1,0]]*255).detach().cpu().numpy().astype(np.uint8)
+                rend_img_show = (rend_image.permute(1, 2, 0).clamp(0,1)[:,:,[2,1,0]]*255).detach().cpu().numpy().astype(np.uint8)
+                depth_magma_show = visualize_depth_magma(rend_depth.detach().permute(1, 2, 0).squeeze())
+                normal_show = ((rend_normal * 0.5 + 0.5).clamp(0,1) * 255).permute(1, 2, 0).detach().cpu().numpy().astype(np.uint8)
+                depth_normal_show = ((rend_depth_normal * 0.5 + 0.5).clamp(0, 1) * 255).permute(1, 2, 0).detach().cpu().numpy().astype(np.uint8)
+
+                row0 = np.concatenate([gt_show, rend_img_show, depth_magma_show, depth_normal_show, normal_show], axis=1)
+                image_to_show = np.concatenate([row0], axis=0)
+
+                debug_path = os.path.join(scene.model_path, "debug")
+                os.makedirs(debug_path, exist_ok=True)
+                cv2.imwrite(os.path.join(debug_path, "%05d"%iteration + "_" + viewpoint_cam.image_name + ".png"), image_to_show)
         # loss
         total_loss = loss + dist_loss + normal_loss
         
