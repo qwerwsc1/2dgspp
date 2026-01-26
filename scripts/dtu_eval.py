@@ -14,31 +14,32 @@ args, _ = parser.parse_known_args()
 all_scenes = []
 all_scenes.extend(dtu_scenes)
 
-if not args.skip_metrics:
-    parser.add_argument('--DTU_Official', "-DTU", required=True, type=str)
-    args = parser.parse_args()
+for scene in dtu_scenes:
+    if not args.skip_metrics:
+        parser.add_argument('--DTU_Official', "-DTU", required=True, type=str)
+        args = parser.parse_args()
 
-
-if not args.skip_training:
-    common_args = " --quiet --test_iterations -1 --depth_ratio 1.0 -r 2 --lambda_dist 1000"
-    for scene in dtu_scenes:
-        source = args.dtu + "/" + scene
+    source = args.dtu + "/" + scene
+    if not args.skip_training:
+        common_args = " --quiet --test_iterations -1 --depth_ratio 1.0 -r 2 --lambda_dist 1000"
+        # for scene in dtu_scenes:
+        # source = args.dtu + "/" + scene
         print("python train.py -s " + source + " -m " + args.output_path + "/" + scene + common_args)
         os.system("python train.py -s " + source + " -m " + args.output_path + "/" + scene + common_args)
 
 
-if not args.skip_rendering:
-    all_sources = []
-    common_args = " --quiet --skip_train --depth_ratio 1.0 --num_cluster 1 --voxel_size 0.004 --sdf_trunc 0.016 --depth_trunc 3.0"
-    for scene in dtu_scenes:
-        source = args.dtu + "/" + scene
+    if not args.skip_rendering:
+        all_sources = []
+        common_args = " --quiet --skip_train --depth_ratio 1.0 --num_cluster 1 --voxel_size 0.004 --sdf_trunc 0.016 --depth_trunc 3.0"
+        # for scene in dtu_scenes:
+        #     source = args.dtu + "/" + scene
         print("python render.py --iteration 30000 -s " + source + " -m" + args.output_path + "/" + scene + common_args)
         os.system("python render.py --iteration 30000 -s " + source + " -m" + args.output_path + "/" + scene + common_args)
 
 
-if not args.skip_metrics:
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    for scene in dtu_scenes:
+    if not args.skip_metrics:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        #for scene in dtu_scenes:
         scan_id = scene[4:]
         ply_file = f"{args.output_path}/{scene}/train/ours_30000/"
         iteration = 30000
@@ -47,5 +48,5 @@ if not args.skip_metrics:
             f"--scan_id {scan_id} --output_dir {args.output_path}/scan{scan_id} " + \
             f"--mask_dir {args.dtu} " + \
             f"--DTU {args.DTU_Official}"
-        
+
         os.system(string)
