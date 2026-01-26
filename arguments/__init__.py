@@ -55,6 +55,7 @@ class ModelParams(ParamGroup):
         self.data_device = "cuda"
         self.eval = False
         self.render_items = ['RGB', 'Alpha', 'Normal', 'Depth', 'Edge', 'Curvature']
+        self.rend_show = True
         self.multi_view_num = 8
         self.multi_view_max_angle = 30
         self.multi_view_min_dis = 0.01
