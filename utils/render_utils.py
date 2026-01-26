@@ -24,7 +24,7 @@ from matplotlib import cm
 from tqdm import tqdm
 
 import torch
-
+import cv2
 def normalize(x: np.ndarray) -> np.ndarray:
   """Normalization helper function."""
   return x / np.linalg.norm(x)
@@ -142,11 +142,11 @@ def generate_ellipse_path(poses: np.ndarray,
     # Interpolate between bounds with trig functions to get ellipse in x-y.
     # Optionally also interpolate in z to change camera height along path.
     return np.stack([
-        low[0] + (high - low)[0] * (np.cos(theta) * .5 + .5),
-        low[1] + (high - low)[1] * (np.sin(theta) * .5 + .5),
-        z_variation * (z_low[2] + (z_high - z_low)[2] *
-                       (np.cos(theta + 2 * np.pi * z_phase) * .5 + .5)),
-    ], -1)
+      low[0] + (high - low)[0] * (np.cos(theta) * .5 + .5),
+      low[1] + (high - low)[1] * (np.sin(theta) * .5 + .5),
+      z_variation * (z_low[2] + (z_high - z_low)[2] *
+                     (np.cos(theta + 2 * np.pi * z_phase) * .5 + .5)),
+      ], -1)
 
   theta = np.linspace(0, 2. * np.pi, n_frames + 1, endpoint=True)
   positions = get_positions(theta)
@@ -182,14 +182,14 @@ def generate_path(viewpoint_cameras, n_frames=480):
 
   traj = []
   for c2w in new_poses:
-      c2w = c2w @ np.diag([1, -1, -1, 1])
-      cam = copy.deepcopy(viewpoint_cameras[0])
-      cam.image_height = int(cam.image_height / 2) * 2
-      cam.image_width = int(cam.image_width / 2) * 2
-      cam.world_view_transform = torch.from_numpy(np.linalg.inv(c2w).T).float().cuda()
-      cam.full_proj_transform = (cam.world_view_transform.unsqueeze(0).bmm(cam.projection_matrix.unsqueeze(0))).squeeze(0)
-      cam.camera_center = cam.world_view_transform.inverse()[3, :3]
-      traj.append(cam)
+    c2w = c2w @ np.diag([1, -1, -1, 1])
+    cam = copy.deepcopy(viewpoint_cameras[0])
+    cam.image_height = int(cam.image_height / 2) * 2
+    cam.image_width = int(cam.image_width / 2) * 2
+    cam.world_view_transform = torch.from_numpy(np.linalg.inv(c2w).T).float().cuda()
+    cam.full_proj_transform = (cam.world_view_transform.unsqueeze(0).bmm(cam.projection_matrix.unsqueeze(0))).squeeze(0)
+    cam.camera_center = cam.world_view_transform.inverse()[3, :3]
+    traj.append(cam)
 
   return traj
 
@@ -210,7 +210,7 @@ def create_videos(base_dir, input_dir, out_name, num_frames=480):
 
   os.makedirs(base_dir, exist_ok=True)
   render_dist_curve_fn = np.log
-  
+
   # Load one example frame to get image shape and depth range.
   depth_file = os.path.join(input_dir, 'vis', f'depth_{idx_to_str(0)}.tiff')
   depth_frame = load_img(depth_file)
@@ -221,16 +221,16 @@ def create_videos(base_dir, input_dir, out_name, num_frames=480):
   print(f'Video shape is {shape[:2]}')
 
   video_kwargs = {
-      'shape': shape[:2],
-      'codec': 'h264',
-      'fps': 60,
-      'crf': 18,
+    'shape': shape[:2],
+    'codec': 'h264',
+    'fps': 60,
+    'crf': 18,
   }
-  
+
   for k in ['depth', 'normal', 'color']:
     video_file = os.path.join(base_dir, f'{video_prefix}_{k}.mp4')
     input_format = 'gray' if k == 'alpha' else 'rgb'
-    
+
 
     file_ext = 'png' if k in ['color', 'normal'] else 'tiff'
     idx = 0
@@ -245,7 +245,7 @@ def create_videos(base_dir, input_dir, out_name, num_frames=480):
       continue
     print(f'Making video {video_file}...')
     with media.VideoWriter(
-        video_file, **video_kwargs, input_format=input_format) as writer:
+            video_file, **video_kwargs, input_format=input_format) as writer:
       for idx in tqdm(range(num_frames)):
         # img_file = os.path.join(input_dir, f'{k}_{idx_to_str(idx)}.{file_ext}')
         if k == 'color':
@@ -271,11 +271,34 @@ def save_img_u8(img, pth):
   """Save an image (probably RGB) in [0, 1] to disk as a uint8 PNG."""
   with open(pth, 'wb') as f:
     Image.fromarray(
-        (np.clip(np.nan_to_num(img), 0., 1.) * 255.).astype(np.uint8)).save(
-            f, 'PNG')
+      (np.clip(np.nan_to_num(img), 0., 1.) * 255.).astype(np.uint8)).save(
+      f, 'PNG')
 
 
 def save_img_f32(depthmap, pth):
   """Save an image (probably a depthmap) to disk as a float32 TIFF."""
   with open(pth, 'wb') as f:
     Image.fromarray(np.nan_to_num(depthmap).astype(np.float32)).save(f, 'TIFF')
+
+def visualize_depth_magma(depth, inverse=True):
+  """Visualize the depth map with colormap.
+     Rescales the values so that depth_min and depth_max map to 0 and 1,
+     respectively.
+  """
+  if isinstance(depth, torch.Tensor):
+    depth = depth.detach().cpu().numpy()
+
+  if inverse:
+    depth = 1.0 / (depth + 1e-6)
+
+  depth_min = np.percentile(depth, 5)
+  depth_max = np.percentile(depth, 95)
+
+  depth[depth < depth_min] = depth_min
+  depth[depth > depth_max] = depth_max
+
+  depth_scaled = (depth - depth_min) / ((depth_max - depth_min) + 1e-20)
+  depth_scaled_uint8 = np.uint8(depth_scaled * 255)
+  depth_color = cv2.applyColorMap(depth_scaled_uint8, cv2.COLORMAP_MAGMA)
+
+  return depth_color
