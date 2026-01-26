@@ -405,3 +405,54 @@ class GaussianModel:
     def add_densification_stats(self, viewspace_point_tensor, update_filter):
         self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter], dim=-1, keepdim=True)
         self.denom[update_filter] += 1
+
+    def get_points_depth_in_depth_map(self, fov_camera, depth, points_in_camera_space, scale=1):
+        st = max(int(scale/2)-1,0)
+        depth_view = depth[None,:,st::scale,st::scale]
+        W, H = int(fov_camera.image_width/scale), int(fov_camera.image_height/scale)
+        depth_view = depth_view[:H, :W]
+        pts_projections = torch.stack(
+            [points_in_camera_space[:,0] * fov_camera.Fx / points_in_camera_space[:,2] + fov_camera.Cx,
+             points_in_camera_space[:,1] * fov_camera.Fy / points_in_camera_space[:,2] + fov_camera.Cy], -1).float()/scale
+        mask = (pts_projections[:, 0] > 0) & (pts_projections[:, 0] < W) & \
+               (pts_projections[:, 1] > 0) & (pts_projections[:, 1] < H) & (points_in_camera_space[:,2] > 0.1)
+
+        pts_projections[..., 0] /= ((W - 1) / 2)
+        pts_projections[..., 1] /= ((H - 1) / 2)
+        pts_projections -= 1
+        pts_projections = pts_projections.view(1, -1, 1, 2)
+        map_z = torch.nn.functional.grid_sample(input=depth_view,
+                                                grid=pts_projections,
+                                                mode='bilinear',
+                                                padding_mode='border',
+                                                align_corners=True
+                                                )[0, :, :, 0]
+        # map_z = torch.nn.functional.grid_sample(input=depth_view,
+        #                                         grid=pts_projections,
+        #                                         mode='bilinear',
+        #                                         padding_mode='border',
+        #                                         align_corners=False
+        #                                         )[0, :, :, 0]
+        return map_z, mask
+
+
+    def get_points_from_depth(self, fov_camera, depth, scale=1):
+        st = int(max(int(scale/2)-1,0))
+        depth_view = depth.squeeze()[st::scale,st::scale]
+        rays_d = fov_camera.get_rays(scale=scale)                       # pts_in_norm
+        depth_view = depth_view[:rays_d.shape[0], :rays_d.shape[1]]
+        pts = (rays_d * depth_view[..., None]).reshape(-1,3)            # pts_in_3D
+        R = torch.tensor(fov_camera.R).float().cuda()
+        T = torch.tensor(fov_camera.T).float().cuda()
+        pts = (pts-T)@R.transpose(-1,-2)
+        return pts
+
+    # def get_rays(self, scale=1.0):
+    #     W, H = int(self.image_width/scale), int(self.image_height/scale)
+    #     ix, iy = torch.meshgrid(
+    #     torch.arange(W), torch.arange(H), indexing='xy')
+    #     rays_d = torch.stack(
+    #     [(ix-self.Cx/scale) / self.Fx * scale,
+    #      (iy-self.Cy/scale) / self.Fy * scale,
+    #      torch.ones_like(ix)], -1).float().cuda()
+    #     return rays_d

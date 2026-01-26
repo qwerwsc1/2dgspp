@@ -55,6 +55,10 @@ class ModelParams(ParamGroup):
         self.data_device = "cuda"
         self.eval = False
         self.render_items = ['RGB', 'Alpha', 'Normal', 'Depth', 'Edge', 'Curvature']
+        self.multi_view_num = 8
+        self.multi_view_max_angle = 30
+        self.multi_view_min_dis = 0.01
+        self.multi_view_max_dis = 1.5
         super().__init__(parser, "Loading Parameters", sentinel)
 
     def extract(self, args):
@@ -92,6 +96,11 @@ class OptimizationParams(ParamGroup):
         self.densify_from_iter = 500
         self.densify_until_iter = 15_000
         self.densify_grad_threshold = 0.0002
+
+        ## copy from pgsr
+        self.multi_view_ncc_weight = 0.15
+        self.multi_view_geo_weight = 0.03
+        self.multi_view_pixel_noise_th = 1.0
         super().__init__(parser, "Optimization Parameters")
 
 def get_combined_args(parser : ArgumentParser):
