@@ -301,9 +301,9 @@ class GaussianExtractor(object):
             save_img_u8(gt.permute(1,2,0).cpu().numpy(), os.path.join(gt_path, '{0:05d}'.format(idx) + ".png"))
             save_img_u8(self.rgbmaps[idx].permute(1,2,0).cpu().numpy(), os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
             save_img_f32(self.depthmaps[idx][0].cpu().numpy(), os.path.join(vis_path, 'depth_{0:05d}'.format(idx) + ".tiff"))
-            save_img_u8(self.normals[idx].permute(1,2,0).cpu().numpy() * 0.5 + 0.5, os.path.join(normal_path, 'normal_{0:05d}'.format(idx) + ".png"))
-            save_img_u8(self.depth_normals[idx].permute(1,2,0).cpu().numpy() * 0.5 + 0.5, os.path.join(depth_normal_path, 'depth_normal_{0:05d}'.format(idx) + ".png"))
+            #save_img_u8(self.normals[idx].permute(1,2,0).cpu().numpy() * 0.5 + 0.5, os.path.join(normal_path, 'normal_{0:05d}'.format(idx) + ".png"))
+            #save_img_u8(self.depth_normals[idx].permute(1,2,0).cpu().numpy() * 0.5 + 0.5, os.path.join(depth_normal_path, 'depth_normal_{0:05d}'.format(idx) + ".png"))
 
-            depth_maps = self.depthmaps[idx]
-            depth_map = visualize_depth_magma(depth_maps.permute(1, 2, 0).squeeze())
-            cv2.imwrite(os.path.join(depth_path, 'depth_{0:05d}'.format(idx) + ".png"), depth_map)
+            # depth_maps = self.depthmaps[idx]
+            # depth_map = visualize_depth_magma(depth_maps.permute(1, 2, 0).squeeze())
+            # cv2.imwrite(os.path.join(depth_path, 'depth_{0:05d}'.format(idx) + ".png"), depth_map)
