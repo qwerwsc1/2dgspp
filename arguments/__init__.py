@@ -99,6 +99,7 @@ class OptimizationParams(ParamGroup):
 
         ## copy from pgsr
         self.multi_view_ncc_weight = 0.15
+        self.multi_view_weight_from_iter = 7000
         self.multi_view_geo_weight = 0.03
         self.multi_view_pixel_noise_th = 1.0
         super().__init__(parser, "Optimization Parameters")

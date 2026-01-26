@@ -28,6 +28,9 @@ try:
 except ImportError:
     TENSORBOARD_FOUND = False
 import random
+import numpy as np
+import cv2
+from utils.render_utils import visualize_depth_magma
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint):
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
@@ -85,7 +88,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         dist_loss = lambda_dist * (rend_dist).mean()
 
         # multi-view loss
-        if iteration > 0: # opt.multi_view_weight_from_iter:
+        if iteration > opt.multi_view_weight_from_iter:
             nearest_cam = None if len(viewpoint_cam.nearest_id) == 0 else scene.getTrainCameras()[random.sample(viewpoint_cam.nearest_id,1)[0]]
             if nearest_cam is not None:
                 import matplotlib.pyplot as plt
@@ -130,6 +133,27 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 if d_mask.sum() > 0:
                     geo_loss = geo_weight * ((weights * pixel_noise)[d_mask]).mean()
                     loss += geo_loss
+
+        if dataset.rend_show:
+            if iteration % 200 == 0:
+                rend_gt = viewpoint_cam.original_image[0:3, :, :]
+                rend_image = render_pkg['render']
+                rend_depth = render_pkg['surf_depth']
+                rend_depth_normal = render_pkg['surf_normal']
+                rend_normal = torch.nn.functional.normalize(render_pkg['rend_normal'], dim=0)
+
+                gt_show = (rend_gt.permute(1, 2, 0).clamp(0,1)[:,:,[2,1,0]]*255).detach().cpu().numpy().astype(np.uint8)
+                rend_img_show = (rend_image.permute(1, 2, 0).clamp(0,1)[:,:,[2,1,0]]*255).detach().cpu().numpy().astype(np.uint8)
+                depth_magma_show = visualize_depth_magma(rend_depth.detach().permute(1, 2, 0).squeeze())
+                normal_show = ((rend_normal * 0.5 + 0.5).clamp(0,1) * 255).permute(1, 2, 0).detach().cpu().numpy().astype(np.uint8)
+                depth_normal_show = ((rend_depth_normal * 0.5 + 0.5).clamp(0, 1) * 255).permute(1, 2, 0).detach().cpu().numpy().astype(np.uint8)
+
+                row0 = np.concatenate([gt_show, rend_img_show, depth_magma_show, depth_normal_show, normal_show], axis=1)
+                image_to_show = np.concatenate([row0], axis=0)
+
+                debug_path = os.path.join(scene.model_path, "debug")
+                os.makedirs(debug_path, exist_ok=True)
+                cv2.imwrite(os.path.join(debug_path, "%05d"%iteration + "_" + viewpoint_cam.image_name + ".png"), image_to_show)
         # loss
         total_loss = loss + dist_loss + normal_loss
         
@@ -155,6 +179,12 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
                 progress_bar.update(10)
             if iteration == opt.iterations:
+                # record training time
+                import json
+                time = progress_bar.format_dict["elapsed"]
+                time_path = os.path.join(dataset.model_path, "training_time.json")
+                with open(time_path, "w") as f:
+                    json.dump({"training_time": progress_bar.format_interval(time)},f,indent=4)
                 progress_bar.close()
 
             # Log and save
